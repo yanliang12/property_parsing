@@ -78,51 +78,7 @@ from pyspark.sql.functions import *
 sc = SparkContext("local")
 sqlContext = SparkSession.builder.getOrCreate()
 
-####################
-
-'''
-
-mv /jessica/elasticsearch-6.7.1 /jessica/elasticsearch_property
-cp -r /jessica/elasticsearch_property /es/
-
-'''
-
-print('starting es')
-
-es_session = jessica_es.start_es(
-	es_path = "/es/elasticsearch_property",
-	es_port_number = "6794")
-
-print('starting kibana')
-
-jessica_es.start_kibana(
-	kibana_path = '/jessica/kibana-6.7.1-linux-x86_64',
-	kibana_port_number = "3974",
-	es_port_number = "6794",
-	)
-
-'''
-http://localhost:3974/app/kibana#/dashboard/84bd18c0-fdc2-11eb-bd1a-8f30bb208bae
-
-DELETE property
-
-PUT property
-{
-  "mappings": {
-  "doc":{
-	    "properties": {
-	      "property__property_geo_location__geo_point": {"type": "geo_point"},
-	      "parsed.property__property_post_date__post_date": {"type": "text"},
-	      "property__property_post_date__post_date": {"type": "date"}
-	    }
-   }
-  }
-}
-
-'''
-
 #################################################
-
 
 '''
 parsing the pages
@@ -131,17 +87,17 @@ parsing the pages
 ####dubizzle#####
 
 today_folder_page_html = '%s/dubizzle/page_html/source=%s'%(data_path,today)
-parsed_json_path = 'property_parsed/website=abudhabi.dubizzle.com'
+parsed_json_path = '/property_parsed/website=abudhabi.dubizzle.com'
+dubizzle_page_html_parquet = '/dubizzle_page_html/source=%s'%(today)
 
 print('load the pages of {}'.format(today_folder_page_html))
 
 dubizzle_page_html = sqlContext.read.json(today_folder_page_html)
-dubizzle_page_html.write.mode('Overwrite').parquet('dubizzle_page_html/source=%s'%(today))
-#dubizzle_page_html.write.mode('Overwrite').parquet('dubizzle_page_html')
+dubizzle_page_html.write.mode('Overwrite').parquet(dubizzle_page_html_parquet)
 
 print('processing the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.parquet('dubizzle_page_html').registerTempTable('dubizzle_page_html')
+sqlContext.read.parquet(dubizzle_page_html_parquet).registerTempTable('dubizzle_page_html')
 
 #####
 
@@ -157,27 +113,27 @@ sqlContext.sql(u"""
 	""").drop('page_html').write.mode('Overwrite').parquet('dubizzle_page_html_parsed')
 
 sqlContext.read.parquet('dubizzle_page_html_parsed').registerTempTable('dubizzle_page_html_parsed')
-
 sqlContext.sql(u"""
 	select * from dubizzle_page_html_parsed where parsed is not null
 	""").write.mode('Overwrite').json(parsed_json_path)
 
-
 print('processing of {} is completed'.format(today_folder_page_html))
 
+os.rmdir(dubizzle_page_html_parquet)
 
 #####propertyfinder####
 
 today_folder_page_html = '%s/propertyfinder/page_html/source=%s'%(data_path,today)
-parsed_json_path = 'property_parsed/website=www.propertyfinder.ae'
+parsed_json_path = '/property_parsed/website=www.propertyfinder.ae'
+propertyfinder_page_html_parquet = '/propertyfinder_page_html/source=%s'%(today)
 
 print('load the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.json(today_folder_page_html).write.mode('Overwrite').parquet('propertyfinder_page_html/source=%s'%(today))
+sqlContext.read.json(today_folder_page_html).write.mode('Overwrite').parquet(propertyfinder_page_html_parquet)
 
 print('processing the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.parquet('propertyfinder_page_html').registerTempTable('propertyfinder_page_html')
+sqlContext.read.parquet(propertyfinder_page_html_parquet).registerTempTable('propertyfinder_page_html')
 
 sqlContext.udf.register(
 	"page_parsing", 
@@ -192,18 +148,22 @@ sqlContext.sql(u"""
 
 print('processing of {} is completed'.format(today_folder_page_html))
 
+os.rmdir(propertyfinder_page_html_parquet)
+
+
 #####bayut####
 
 today_folder_page_html = '%s/bayut/page_html/source=%s'%(data_path, today)
-parsed_json_path = 'property_parsed/website=www.bayut.com'
+parsed_json_path = '/property_parsed/website=www.bayut.com'
+bayut_page_html_parquet = '/bayut_page_html/source=%s'%(today)
 
 print('load the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.json(today_folder_page_html).write.mode('Overwrite').parquet('bayut_page_html/source=%s'%(today))
+sqlContext.read.json(today_folder_page_html).write.mode('Overwrite').parquet(bayut_page_html_parquet)
 
 print('processing the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.parquet('bayut_page_html').registerTempTable('bayut_page_html')
+sqlContext.read.parquet(bayut_page_html_parquet).registerTempTable('bayut_page_html')
 
 sqlContext.udf.register(
 	"page_parsing", 
@@ -218,6 +178,7 @@ sqlContext.sql(u"""
 
 print('processing of {} is completed'.format(today_folder_page_html))
 
+os.rmdir(bayut_page_html_parquet)
 
 #################################################
 
@@ -227,7 +188,7 @@ extract the numbers and geo-points, and date
 
 print('enriching the parsed pages')
 
-parsed_json_path = 'property_parsed'
+parsed_json_path = '/property_parsed'
 sqlContext.read.json(parsed_json_path).registerTempTable('page_parsed')
 
 '''
@@ -317,7 +278,6 @@ sqlContext.sql(u"""
 	""").write.mode('Overwrite').parquet('property__property_post_date__post_date')
 
 #######post date#######
-
 
 def amount_extraction(
 	size_str,
@@ -429,7 +389,6 @@ sqlContext.sql(u"""
 	AND page_url_hash IS NOT NULL
 	""").write.mode('Overwrite').parquet('property__property_bath_number__bath_number')
 
-
 ##########
 
 sqlContext.read.parquet('property__property_geo_location__geo_point').registerTempTable('property__property_geo_location__geo_point')
@@ -440,14 +399,13 @@ sqlContext.read.parquet('property__property_size__size').registerTempTable('prop
 sqlContext.read.parquet('property__property_bedroom_number__bedroom_number').registerTempTable('property__property_bedroom_number__bedroom_number')
 sqlContext.read.parquet('property__property_bath_number__bath_number').registerTempTable('property__property_bath_number__bath_number')
 
-
 #################################################
 
 '''
 build the index data
 '''
 
-property_es_data = 'property_es_data'
+property_es_data = '/property_es_data'
 #property_es_data = '/dcd_data/temp/property_es_data_{}'.format(today)
 
 print('attaching the attributes to the main table')
@@ -476,6 +434,52 @@ print('enrichment is complete and the es data is ready')
 
 #############
 
+
+
+
+####################
+
+'''
+
+mv /jessica/elasticsearch-6.7.1 /jessica/elasticsearch_property
+cp -r /jessica/elasticsearch_property /es/
+
+'''
+
+print('starting es')
+
+es_session = jessica_es.start_es(
+	es_path = "/es/elasticsearch_property",
+	es_port_number = "6794")
+
+print('starting kibana')
+
+jessica_es.start_kibana(
+	kibana_path = '/jessica/kibana-6.7.1-linux-x86_64',
+	kibana_port_number = "3974",
+	es_port_number = "6794",
+	)
+
+'''
+http://localhost:3974/app/kibana#/dashboard/84bd18c0-fdc2-11eb-bd1a-8f30bb208bae
+
+DELETE property
+
+PUT property
+{
+  "mappings": {
+  "doc":{
+	    "properties": {
+	      "property__property_geo_location__geo_point": {"type": "geo_point"},
+	      "parsed.property__property_post_date__post_date": {"type": "text"},
+	      "property__property_post_date__post_date": {"type": "date"}
+	    }
+   }
+  }
+}
+
+'''
+
 print('ingesting data to es')
 
 files = [join(property_es_data, f) 
@@ -495,9 +499,5 @@ for f in files:
 		print(df)
 	except Exception as e:
 		print(e)
-
-os.rmdir(
-	'dubizzle_page_html/source=%s'%(today)
-	)
 
 ############property_processing.py################
