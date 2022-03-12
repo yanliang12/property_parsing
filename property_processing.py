@@ -26,13 +26,6 @@ do
 done
 
 
-for day in {01..31}
-do
-	echo "processing the data of day $day"
-	python3 property_processing.py --source date202112$day --data_path /data
-done
-
-
 '''
 
 import os
