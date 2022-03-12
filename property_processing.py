@@ -11,17 +11,25 @@ yanliang12/yan_property_processing:1.0.1
 
 python3 \
 property_processing.py \
---source date20211111 \
+--source date20211114 \
 --data_path /dcd_data
 
 
-for day in {10..30}
+mv /data/main.sh ./
+bash main.sh &
+
+
+for day in {13..31}
 do
 	echo "processing the data of day $day"
-	python3 \
-property_processing.py \
---source date202111$day \
---data_path /dcd_data
+	python3 property_processing.py --source date202201$day --data_path /data
+done
+
+
+for day in {01..31}
+do
+	echo "processing the data of day $day"
+	python3 property_processing.py --source date202112$day --data_path /data
 done
 
 
@@ -129,6 +137,7 @@ print('load the pages of {}'.format(today_folder_page_html))
 
 dubizzle_page_html = sqlContext.read.json(today_folder_page_html)
 dubizzle_page_html.write.mode('Overwrite').parquet('dubizzle_page_html/source=%s'%(today))
+#dubizzle_page_html.write.mode('Overwrite').parquet('dubizzle_page_html')
 
 print('processing the pages of {}'.format(today_folder_page_html))
 
@@ -486,5 +495,9 @@ for f in files:
 		print(df)
 	except Exception as e:
 		print(e)
+
+os.rmdir(
+	'dubizzle_page_html/source=%s'%(today)
+	)
 
 ############property_processing.py################
