@@ -37,6 +37,7 @@ done
 
 import os
 import re
+import time
 import pandas
 import pytz
 import datetime
@@ -62,6 +63,9 @@ today = args.source
 data_path = args.data_path
 
 '''
+today = 'date20211201'
+data_path = '/data/'
+
 today = datetime.datetime.now(pytz.timezone('Asia/Dubai'))
 today = today - datetime.timedelta(days=1)
 today = today.strftime("date%Y%m%d")
@@ -86,18 +90,19 @@ parsing the pages
 
 ####dubizzle#####
 
+time_start = time.time()
+
 today_folder_page_html = '%s/dubizzle/page_html/source=%s'%(data_path,today)
-parsed_json_path = '/property_parsed/website=abudhabi.dubizzle.com'
-dubizzle_page_html_parquet = '/dubizzle_page_html/source=%s'%(today)
+parsed_json_path = 'property_parsed/website=abudhabi.dubizzle.com'
 
 print('load the pages of {}'.format(today_folder_page_html))
 
 dubizzle_page_html = sqlContext.read.json(today_folder_page_html)
-dubizzle_page_html.write.mode('Overwrite').parquet(dubizzle_page_html_parquet)
+dubizzle_page_html.write.mode('Overwrite').parquet('dubizzle_page_html.parquet')
 
 print('processing the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.parquet(dubizzle_page_html_parquet).registerTempTable('dubizzle_page_html')
+sqlContext.read.parquet('dubizzle_page_html.parquet').registerTempTable('dubizzle_page_html')
 
 #####
 
@@ -108,32 +113,35 @@ sqlContext.udf.register(
 
 sqlContext.sql(u"""
 	select *,
+	'{}' as source,
 	page_parsing(page_html, page_url) as parsed
 	from dubizzle_page_html
-	""").drop('page_html').write.mode('Overwrite').parquet('dubizzle_page_html_parsed')
+	""".format(today))\
+	.drop('page_html').write.mode('Overwrite').parquet('dubizzle_page_html_parsed')
 
 sqlContext.read.parquet('dubizzle_page_html_parsed').registerTempTable('dubizzle_page_html_parsed')
 sqlContext.sql(u"""
 	select * from dubizzle_page_html_parsed where parsed is not null
 	""").write.mode('Overwrite').json(parsed_json_path)
 
-print('processing of {} is completed'.format(today_folder_page_html))
-
-os.rmdir(dubizzle_page_html_parquet)
+print('processing of {} is completed. consumed time: {}'.format(
+	today_folder_page_html,
+	(time.time() - time_start)))
 
 #####propertyfinder####
 
+time_start = time.time()
+
 today_folder_page_html = '%s/propertyfinder/page_html/source=%s'%(data_path,today)
-parsed_json_path = '/property_parsed/website=www.propertyfinder.ae'
-propertyfinder_page_html_parquet = '/propertyfinder_page_html/source=%s'%(today)
+parsed_json_path = 'property_parsed/website=www.propertyfinder.ae'
 
 print('load the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.json(today_folder_page_html).write.mode('Overwrite').parquet(propertyfinder_page_html_parquet)
+sqlContext.read.json(today_folder_page_html).write.mode('Overwrite').parquet('propertyfinder_page_html.parquet')
 
 print('processing the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.parquet(propertyfinder_page_html_parquet).registerTempTable('propertyfinder_page_html')
+sqlContext.read.parquet('propertyfinder_page_html.parquet').registerTempTable('propertyfinder_page_html')
 
 sqlContext.udf.register(
 	"page_parsing", 
@@ -142,28 +150,29 @@ sqlContext.udf.register(
 
 sqlContext.sql(u"""
 	select *,
+	'{}' as source,
 	page_parsing(page_html, page_url) as parsed
 	from propertyfinder_page_html
-	""").drop('page_html').write.mode('Overwrite').json(parsed_json_path)
+	""".format(today)).drop('page_html').write.mode('Overwrite').json(parsed_json_path)
 
-print('processing of {} is completed'.format(today_folder_page_html))
-
-os.rmdir(propertyfinder_page_html_parquet)
-
+print('processing of {} is completed. consumed time: {}'.format(
+	today_folder_page_html,
+	(time.time() - time_start)))
 
 #####bayut####
 
+time_start = time.time()
+
 today_folder_page_html = '%s/bayut/page_html/source=%s'%(data_path, today)
-parsed_json_path = '/property_parsed/website=www.bayut.com'
-bayut_page_html_parquet = '/bayut_page_html/source=%s'%(today)
+parsed_json_path = 'property_parsed/website=www.bayut.com'
 
 print('load the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.json(today_folder_page_html).write.mode('Overwrite').parquet(bayut_page_html_parquet)
+sqlContext.read.json(today_folder_page_html).write.mode('Overwrite').parquet('bayut_page_html.parquet')
 
 print('processing the pages of {}'.format(today_folder_page_html))
 
-sqlContext.read.parquet(bayut_page_html_parquet).registerTempTable('bayut_page_html')
+sqlContext.read.parquet('bayut_page_html.parquet').registerTempTable('bayut_page_html')
 
 sqlContext.udf.register(
 	"page_parsing", 
@@ -172,13 +181,14 @@ sqlContext.udf.register(
 
 sqlContext.sql(u"""
 	select *,
+	'{}' as source,
 	page_parsing(page_html, page_url) as parsed
 	from bayut_page_html
-	""").drop('page_html').write.mode('Overwrite').json(parsed_json_path)
+	""".format(today)).drop('page_html').write.mode('Overwrite').json(parsed_json_path)
 
-print('processing of {} is completed'.format(today_folder_page_html))
-
-os.rmdir(bayut_page_html_parquet)
+print('processing of {} is completed. consumed time: {}'.format(
+	today_folder_page_html,
+	(time.time() - time_start)))
 
 #################################################
 
@@ -186,10 +196,13 @@ os.rmdir(bayut_page_html_parquet)
 extract the numbers and geo-points, and date
 '''
 
+time_start = time.time()
+
 print('enriching the parsed pages')
 
-parsed_json_path = '/property_parsed'
-sqlContext.read.json(parsed_json_path).registerTempTable('page_parsed')
+parsed_json_path = 'property_parsed'
+sqlContext.read.json(parsed_json_path).write.mode('Overwrite').parquet('property_parsed.parquet')
+sqlContext.read.parquet('property_parsed.parquet').registerTempTable('page_parsed')
 
 '''
 produce the geo_point
@@ -405,7 +418,7 @@ sqlContext.read.parquet('property__property_bath_number__bath_number').registerT
 build the index data
 '''
 
-property_es_data = '/property_es_data'
+property_es_data = 'property_es_data'
 #property_es_data = '/dcd_data/temp/property_es_data_{}'.format(today)
 
 print('attaching the attributes to the main table')
@@ -430,14 +443,9 @@ sqlContext.sql(u"""
 	LEFT JOIN property__property_bath_number__bath_number AS f ON f.page_url_hash = j.page_url_hash
 	""").write.mode('Overwrite').json(property_es_data)
 
-print('enrichment is complete and the es data is ready')
+print('enrichment is complete. consumed time: {}'.format(time.time() - time_start))
 
-#############
-
-
-
-
-####################
+################
 
 '''
 
@@ -460,6 +468,8 @@ jessica_es.start_kibana(
 	es_port_number = "6794",
 	)
 
+#################
+
 '''
 http://localhost:3974/app/kibana#/dashboard/84bd18c0-fdc2-11eb-bd1a-8f30bb208bae
 
@@ -480,6 +490,8 @@ PUT property
 
 '''
 
+time_start = time.time()
+
 print('ingesting data to es')
 
 files = [join(property_es_data, f) 
@@ -499,5 +511,7 @@ for f in files:
 		print(df)
 	except Exception as e:
 		print(e)
+
+print('es ingestion complete. consumed time: {}'.format(time.time() - time_start))
 
 ############property_processing.py################
