@@ -43,6 +43,30 @@ import dubizzle_parsing
 import propertyfinder_parsing
 import bayut_parsing
 
+################
+
+'''
+
+mv /jessica/elasticsearch-6.7.1 /jessica/elasticsearch_property
+cp -r /jessica/elasticsearch_property /es/
+
+'''
+
+print('starting es')
+
+es_session = jessica_es.start_es(
+	es_path = "/es/elasticsearch_property",
+	es_port_number = "6794")
+
+print('starting kibana')
+
+jessica_es.start_kibana(
+	kibana_path = '/jessica/kibana-6.7.1-linux-x86_64',
+	kibana_port_number = "3974",
+	es_port_number = "6794",
+	)
+
+
 ####################
 
 parser = argparse.ArgumentParser()
@@ -437,29 +461,6 @@ sqlContext.sql(u"""
 	""").write.mode('Overwrite').json(property_es_data)
 
 print('enrichment is complete. consumed time: {}'.format(time.time() - time_start))
-
-################
-
-'''
-
-mv /jessica/elasticsearch-6.7.1 /jessica/elasticsearch_property
-cp -r /jessica/elasticsearch_property /es/
-
-'''
-
-print('starting es')
-
-es_session = jessica_es.start_es(
-	es_path = "/es/elasticsearch_property",
-	es_port_number = "6794")
-
-print('starting kibana')
-
-jessica_es.start_kibana(
-	kibana_path = '/jessica/kibana-6.7.1-linux-x86_64',
-	kibana_port_number = "3974",
-	es_port_number = "6794",
-	)
 
 #################
 
